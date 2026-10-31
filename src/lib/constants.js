@@ -48,7 +48,7 @@ export const DEFAULT_SETTINGS = {
   letterSpacing: 0,
   wordSpacing: 2,
   ...NEAT_HAND(),
-  penThickness: -0.5, // -1 thin … 0 normal … 1 bold
+  penThickness: -0.35, // -1 thin … 0 normal … 1 bold
   seed: 1,
   firstTemplateId: 'sgvu-cover',
   restTemplateId: 'sgvu-ruled',

@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { PAGE_H } from '../lib/constants'
-import { detectLines, lineCapacity } from '../lib/templates'
+import { builtinTemplates, detectLines, lineCapacity } from '../lib/templates'
 import { Button, Slider } from './ui'
 
 export default function TemplatesPanel({ templates, settings, update, selectedId, setSelectedId, onUpload, onChangeTemplate, onDeleteTemplate }) {
@@ -18,12 +18,21 @@ export default function TemplatesPanel({ templates, settings, update, selectedId
     setBusy('')
   }
 
-  async function autoDetect() {
+  /**
+   * Auto adjust: finds the ruled lines on the page and sets first line, gap and margins,
+   * then fits the text size so the writing sits nicely between the lines.
+   */
+  async function autoAdjust() {
     setBusy('Finding lines…')
     const d = await detectLines(sel.src).catch(() => null)
     setBusy('')
-    if (!d) return alert('Could not find ruled lines on this page. Set them with the sliders.')
-    onChangeTemplate(sel.id, { top: d.top, gap: d.gap, bottom: d.bottom, ...(d.left ? { left: d.left } : {}) })
+    const original = sel.builtin ? builtinTemplates().find((t) => t.id === sel.id) : null
+    const geo = d
+      ? { top: d.top, gap: d.gap, bottom: Math.max(0, d.bottom - 1), left: d.left ?? original?.left ?? 40, right: original?.right ?? 30 }
+      : original && { top: original.top, gap: original.gap, bottom: original.bottom, left: original.left, right: original.right }
+    if (!geo) return alert('Could not find ruled lines on this page. Set them with the sliders.')
+    onChangeTemplate(sel.id, geo)
+    update({ fontSize: Math.round(geo.gap * 0.7 * 2) / 2, baseline: Math.round(geo.gap * 0.16 * 2) / 2 })
   }
 
   return (
@@ -89,8 +98,12 @@ export default function TemplatesPanel({ templates, settings, update, selectedId
             </Button>
           </div>
 
+          <Button variant="primary" onClick={autoAdjust} disabled={!!busy} className="w-full">
+            {busy === 'Finding lines…' ? 'Adjusting…' : '✨ Auto adjust'}
+          </Button>
           <div className="text-xs text-neutral-500">
-            Match the <span className="font-semibold text-red-600">red lines</span> to the page lines and the <span className="font-semibold text-blue-600">blue lines</span> to the margins.
+            Auto adjust finds the lines on the page and fits the text to them. Or match the <span className="font-semibold text-red-600">red lines</span> to the
+            page lines and the <span className="font-semibold text-blue-600">blue lines</span> to the margins by hand.
             <b> {lineCapacity(sel)} lines</b> per page.
           </div>
           <Slider label="First line position" value={sel.top} min={0} max={PAGE_H} step={0.5} onChange={(v) => onChangeTemplate(sel.id, { top: v })} />
@@ -100,11 +113,6 @@ export default function TemplatesPanel({ templates, settings, update, selectedId
           <Slider label="Right margin" value={sel.right} min={0} max={400} step={1} onChange={(v) => onChangeTemplate(sel.id, { right: v })} />
 
           <div className="flex flex-wrap gap-2 pt-1">
-            {!sel.builtin && (
-              <Button onClick={autoDetect} disabled={!!busy} className="text-xs">
-                Auto-detect lines
-              </Button>
-            )}
             {!sel.builtin && (
               <Button
                 variant="danger"

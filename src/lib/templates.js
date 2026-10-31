@@ -44,7 +44,7 @@ export function builtinTemplates() {
 }
 
 export function lineCapacity(t) {
-  return Math.max(1, Math.floor((PAGE_H - t.bottom - t.top) / t.gap) + 1)
+  return Math.max(1, Math.floor((PAGE_H - t.bottom - t.top) / t.gap + 0.15) + 1)
 }
 
 export function loadImage(src) {
@@ -141,30 +141,34 @@ export async function detectLines(src) {
     for (let x = x0; x < x1; x++) if (lum[y * PAGE_W + x] < thr) dark++
     if (dark / (x1 - x0) > 0.3) rows.push(y)
   }
-  const lines = []
+  const clusters = []
   for (let i = 0; i < rows.length; ) {
     let j = i
     while (j + 1 < rows.length && rows[j + 1] - rows[j] <= 2) j++
-    lines.push((rows[i] + rows[j]) / 2)
+    clusters.push({ c: (rows[i] + rows[j]) / 2, span: rows[j] - rows[i] + 1 })
     i = j + 1
   }
+  // Writing lines are thin. Thick or double rules (borders, header lines) are skipped.
+  const lines = clusters.filter((l) => l.span <= 3).map((l) => l.c)
   if (lines.length < 3) return null
 
   // Longest run of evenly spaced lines (tolerates one missing line).
+  // The tolerance is tight so table rows (e.g. 27 apart) don't merge with ruled lines (30 apart).
   let best = null
   for (let i = 0; i < lines.length - 1; i++) {
-    const d0 = lines[i + 1] - lines[i]
-    if (d0 < 14 || d0 > 120) continue
+    let d = lines[i + 1] - lines[i]
+    if (d < 14 || d > 120) continue
     let steps = 1
     let last = i + 1
     let count = 2
     for (let k = i + 2; k < lines.length; k++) {
-      const n = (lines[k] - lines[last]) / d0
+      const n = (lines[k] - lines[last]) / d
       const r = Math.round(n)
-      if (r >= 1 && r <= 2 && Math.abs(n - r) < 0.2) {
+      if (r >= 1 && r <= 2 && Math.abs(n - r) < 0.07 * r) {
         steps += r
         last = k
         count++
+        d = (lines[last] - lines[i]) / steps // refine with the running average
       } else if (n > 2.5) break
     }
     if (!best || count > best.count) best = { first: lines[i], last: lines[last], steps, count }
@@ -186,7 +190,7 @@ export async function detectLines(src) {
 
   return {
     top: Math.round(best.first * 10) / 10,
-    gap: Math.round(gap * 10) / 10,
+    gap: Math.round(gap * 100) / 100,
     bottom: Math.max(0, Math.round(PAGE_H - best.last - 1)),
     left,
   }
