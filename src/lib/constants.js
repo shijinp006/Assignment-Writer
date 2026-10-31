@@ -29,6 +29,17 @@ export const INKS = [
   { name: 'Green', value: '#1e6b3a' },
 ]
 
+/** "Human touch" presets: neat (default), natural, fast. */
+export function NEAT_HAND() {
+  return { shapeVariation: 0.45, letterVariation: 0.4, inkTexture: 0.3, messiness: 0.3, lineDrift: 0.3, pressure: 0.3, slant: 2 }
+}
+export function NATURAL_HAND() {
+  return { shapeVariation: 0.7, letterVariation: 0.6, inkTexture: 0.4, messiness: 0.45, lineDrift: 0.5, pressure: 0.4, slant: 3 }
+}
+export function FAST_HAND() {
+  return { shapeVariation: 1.1, letterVariation: 1, inkTexture: 0.5, messiness: 0.8, lineDrift: 0.9, pressure: 0.6, slant: 5 }
+}
+
 export const DEFAULT_SETTINGS = {
   font: 'Kalam',
   fontSize: 21,
@@ -36,7 +47,9 @@ export const DEFAULT_SETTINGS = {
   baseline: 5,
   letterSpacing: 0,
   wordSpacing: 2,
-  messiness: 0.5,
+  ...NEAT_HAND(),
+  penThickness: -0.5, // -1 thin … 0 normal … 1 bold
+  seed: 1,
   firstTemplateId: 'sgvu-cover',
   restTemplateId: 'sgvu-ruled',
   pageOverrides: {},
@@ -48,7 +61,7 @@ export const DEFAULT_SETTINGS = {
     subject: 'Environmental Studies',
     semester: '2nd',
   },
-  version: 2,
+  version: 3,
 }
 
 export const DEFAULT_TEXT = `# ASSIGNMENT - 2

@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { FONTS, INKS } from '../lib/constants'
+import { FAST_HAND, FONTS, INKS, NATURAL_HAND, NEAT_HAND } from '../lib/constants'
 import { Button, Slider } from './ui'
 
 export default function StylePanel({ settings, update, customFonts, onAddFont, onRemoveFont }) {
@@ -83,10 +83,32 @@ export default function StylePanel({ settings, update, customFonts, onAddFont, o
       <section className="space-y-3">
         <h3 className="text-sm font-semibold text-neutral-800">Size & spacing</h3>
         <Slider label="Text size" value={settings.fontSize} min={10} max={60} step={0.5} onChange={(v) => update({ fontSize: v })} />
+        <Slider label="Pen thickness (thin ← → bold)" value={settings.penThickness ?? -0.5} min={-1} max={1} step={0.05} onChange={(v) => update({ penThickness: v })} />
         <Slider label="Lift above line" value={settings.baseline} min={-10} max={30} step={0.5} onChange={(v) => update({ baseline: v })} />
         <Slider label="Letter spacing" value={settings.letterSpacing} min={-2} max={6} step={0.1} onChange={(v) => update({ letterSpacing: v })} />
         <Slider label="Word spacing" value={settings.wordSpacing} min={-4} max={30} step={0.5} onChange={(v) => update({ wordSpacing: v })} />
-        <Slider label="Natural wobble" value={settings.messiness} min={0} max={1.5} step={0.05} onChange={(v) => update({ messiness: v })} />
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-neutral-800">Human touch</h3>
+          <Button onClick={() => update({ seed: Math.floor(Math.random() * 100000) })} className="!px-2 !py-1 text-xs" title="Write it again with new random variation">
+            🔀 Shuffle
+          </Button>
+        </div>
+        <p className="text-xs text-neutral-500">Every letter is drawn a little differently, like real handwriting. 0 = perfectly neat.</p>
+        <Slider label="Letter shape variation" value={settings.shapeVariation} min={0} max={2} step={0.05} onChange={(v) => update({ shapeVariation: v })} />
+        <Slider label="Letter size / tilt variation" value={settings.letterVariation} min={0} max={2} step={0.05} onChange={(v) => update({ letterVariation: v })} />
+        <Slider label="Ink texture" value={settings.inkTexture} min={0} max={1.5} step={0.05} onChange={(v) => update({ inkTexture: v })} />
+        <Slider label="Word wobble" value={settings.messiness} min={0} max={1.5} step={0.05} onChange={(v) => update({ messiness: v })} />
+        <Slider label="Line drift" value={settings.lineDrift} min={0} max={2} step={0.05} onChange={(v) => update({ lineDrift: v })} />
+        <Slider label="Pen pressure variation" value={settings.pressure} min={0} max={1.5} step={0.05} onChange={(v) => update({ pressure: v })} />
+        <Slider label="Slant" value={settings.slant} min={-15} max={25} step={0.5} suffix="°" onChange={(v) => update({ slant: v })} />
+        <div className="flex flex-wrap gap-2 pt-1">
+          <Button className="text-xs" onClick={() => update(NEAT_HAND())}>Neat</Button>
+          <Button className="text-xs" onClick={() => update(NATURAL_HAND())}>Natural</Button>
+          <Button className="text-xs" onClick={() => update(FAST_HAND())}>Fast writing</Button>
+        </div>
       </section>
     </div>
   )

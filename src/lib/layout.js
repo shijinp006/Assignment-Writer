@@ -3,9 +3,15 @@ import { lineCapacity } from './templates'
 
 const ctx = document.createElement('canvas').getContext('2d')
 
-export function makeMeasure(font, size, letterSpacing) {
+/** Font weight for the chosen pen thickness (fonts without that weight just use their normal one). */
+export function penWeight(settings) {
+  const t = settings.penThickness ?? -0.5
+  return t <= -0.3 ? 300 : t >= 0.7 ? 700 : 400
+}
+
+export function makeMeasure(font, size, letterSpacing, weight = 400) {
   const cache = new Map()
-  const fontStr = `${size}px "${font}"`
+  const fontStr = `${weight} ${size}px "${font}"`
   return (t) => {
     let w = cache.get(t)
     if (w === undefined) {
@@ -97,7 +103,15 @@ export function layoutDocument({ text, templates, settings, measure }) {
       dx += w
       return o
     })
-    return { segs: placed, text: wordText(segs), w: measure(wordText(segs)) }
+    const text = wordText(segs)
+    // start offset of every character, so each letter can be drawn on its own
+    const chars = []
+    let prefix = ''
+    for (const ch of text) {
+      chars.push({ ch, dx: prefix ? measure(prefix) : 0 })
+      prefix += ch
+    }
+    return { segs: placed, text, chars, w: measure(text) }
   }
 
   for (const raw of text.replace(/\r/g, '').replace(/\t/g, '    ').split('\n')) {

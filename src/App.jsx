@@ -5,9 +5,9 @@ import StylePanel from './components/StylePanel'
 import TemplatesPanel from './components/TemplatesPanel'
 import { Button } from './components/ui'
 import WritePanel from './components/WritePanel'
-import { DEFAULT_SETTINGS, DEFAULT_TEXT } from './lib/constants'
-import { layoutDocument, makeMeasure } from './lib/layout'
-import { downloadPdf } from './lib/render'
+import { DEFAULT_SETTINGS, DEFAULT_TEXT, NEAT_HAND } from './lib/constants'
+import { layoutDocument, makeMeasure, penWeight } from './lib/layout'
+import { downloadPdf, renderPageToCanvas } from './lib/render'
 import { builtinTemplates, detectLines, imageFileToDataUrl, pdfFileToDataUrls } from './lib/templates'
 
 const STATE_KEY = 'aw-state-v1'
@@ -37,6 +37,8 @@ export default function App() {
   const [skipPrint, setSkipPrint] = useState(() => new Set())
   const [fontTick, setFontTick] = useState(0)
   const [pdfBusy, setPdfBusy] = useState(false)
+  const [printBusy, setPrintBusy] = useState(false)
+  const [printImages, setPrintImages] = useState([])
 
   // Load saved work
   useEffect(() => {
@@ -47,11 +49,13 @@ export default function App() {
           if (typeof saved.text === 'string') setText(saved.text)
           if (saved.settings) {
             const s = { ...DEFAULT_SETTINGS, ...saved.settings, cover: { ...DEFAULT_SETTINGS.cover, ...saved.settings.cover } }
-            if (!saved.settings.version) {
+            const v = saved.settings.version || 0
+            if (v < 2) {
               s.firstTemplateId = DEFAULT_SETTINGS.firstTemplateId
               s.restTemplateId = DEFAULT_SETTINGS.restTemplateId
-              s.version = DEFAULT_SETTINGS.version
             }
+            if (v < 3) Object.assign(s, NEAT_HAND()) // switch older saves to the neater handwriting
+            s.version = DEFAULT_SETTINGS.version
             setSettings(s)
           }
           if (Array.isArray(saved.templates)) {
@@ -85,18 +89,18 @@ export default function App() {
   // Re-layout once the chosen font has actually loaded (so measurements are right)
   useEffect(() => {
     let cancelled = false
-    document.fonts.load(`${settings.fontSize}px "${settings.font}"`).then(() => !cancelled && setFontTick((t) => t + 1))
+    document.fonts.load(`${penWeight(settings)} ${settings.fontSize}px "${settings.font}"`).then(() => !cancelled && setFontTick((t) => t + 1))
     return () => {
       cancelled = true
     }
-  }, [settings.font, settings.fontSize])
+  }, [settings.font, settings.fontSize, settings.penThickness])
 
   const update = (patch) => setSettings((s) => ({ ...s, ...patch }))
 
   const measure = useMemo(
-    () => makeMeasure(settings.font, settings.fontSize, settings.letterSpacing),
+    () => makeMeasure(settings.font, settings.fontSize, settings.letterSpacing, penWeight(settings)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [settings.font, settings.fontSize, settings.letterSpacing, fontTick],
+    [settings.font, settings.fontSize, settings.letterSpacing, settings.penThickness, fontTick],
   )
 
   const pages = useMemo(() => layoutDocument({ text, templates, settings, measure }), [text, templates, settings, measure])
@@ -199,6 +203,23 @@ export default function App() {
     setPdfBusy(false)
   }
 
+  // Render the pages at print resolution first, then open the print dialog.
+  async function onPrint() {
+    setPrintBusy(true)
+    try {
+      await document.fonts.load(`${settings.fontSize}px "${settings.font}"`)
+      const urls = []
+      for (const p of printPages) urls.push((await renderPageToCanvas(p, settings, 2.5)).toDataURL('image/png'))
+      setPrintImages(urls)
+      await new Promise((r) => setTimeout(r, 150))
+      await Promise.all([...document.querySelectorAll('.print-sheet img')].map((img) => img.decode().catch(() => {})))
+      window.print()
+    } catch (e) {
+      alert('Could not prepare pages for printing: ' + e.message)
+    }
+    setPrintBusy(false)
+  }
+
   function togglePrint(index) {
     setSkipPrint((s) => {
       const n = new Set(s)
@@ -229,8 +250,8 @@ export default function App() {
             <Button onClick={onDownloadPdf} disabled={!printPages.length || pdfBusy}>
               {pdfBusy ? 'Making PDF…' : '⬇ Download PDF'}
             </Button>
-            <Button variant="primary" onClick={() => window.print()} disabled={!printPages.length}>
-              🖨 Print {printPages.length !== pages.length ? `(${printPages.length})` : ''}
+            <Button variant="primary" onClick={onPrint} disabled={!printPages.length || printBusy}>
+              🖨 {printBusy ? 'Preparing…' : 'Print'} {printPages.length !== pages.length ? `(${printPages.length})` : ''}
             </Button>
           </div>
         </header>
@@ -316,9 +337,9 @@ export default function App() {
       </div>
 
       <div className="hidden print:block">
-        {printPages.map((p) => (
-          <div key={p.index} className="print-sheet">
-            <Page page={p} settings={settings} showGuides={false} />
+        {printImages.map((src, i) => (
+          <div key={i} className="print-sheet">
+            <img src={src} alt="" className="block h-full w-full" />
           </div>
         ))}
       </div>
